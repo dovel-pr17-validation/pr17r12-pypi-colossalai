@@ -12,7 +12,7 @@ sqlalchemy==2.0.20
 pytest==7.4.2
 # coati install from ../Chat
 sentence-transformers==2.2.2
-chromadb==0.4.9
+chromadb==1.5.9
 openai==0.28.0 #used for chatgpt please install directly from openai repo
 tiktoken==0.5.1
 unstructured==0.10.14
