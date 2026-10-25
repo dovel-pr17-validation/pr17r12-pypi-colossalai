@@ -1,0 +1,53 @@
+name: Test Example on Dispatch
+on:
+  workflow_dispatch:
+    inputs:
+      example_directory:
+        type: string
+        description: example directory, separated by space. For example, language/gpt, images/vit. Simply input language or simply gpt does not work.
+        required: true
+
+jobs:
+  matrix_preparation:
+    name: Check the examples user want
+    runs-on: [self-hosted, ubuntu-latest]
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+    - name: 📚 Checkout
+      uses: actions/checkout@v7
+    - name: Set up matrix
+      id: set-matrix
+      env:
+        check_dir: ${{ inputs.example_directory }}
+      run: |
+        res=`python .github/workflows/scripts/example_checks/check_dispatch_inputs.py --fileNameList $check_dir`
+        if [ "$res" = "failure" ]; then
+          exit 1
+        fi
+        dirs="[${check_dir}]"
+        echo "Testing examples in $dirs"
+        echo "matrix={\"directory\":$(echo "$dirs")}" >> $GITHUB_OUTPUT
+
+  test_example:
+    name: Manually check example files
+    needs: matrix_preparation
+    runs-on: [self-hosted, ubuntu-latest]
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.matrix_preparation.outputs.matrix) }}
+    container:
+      image: image-cloud.luchentech.com/hpcaitech/pytorch-cuda:2.2.2-12.1.0
+      options: --gpus all --rm -v /data/scratch/examples-data:/data/ -v /dev/shm
+    timeout-minutes: 15
+    steps:
+      - name: 📚 Checkout
+        uses: actions/checkout@v7
+      - name: Install Colossal-AI
+        run: |
+          BUILD_EXT=1 pip install -v -e .
+      - name: Test the example
+        run: |
+          dir=${{ matrix.directory }}
+          echo "Testing ${dir} now"
+          python3 .github/workflows/scripts/example_checks/run_test_ci.py "examples/${dir}/test_ci.sh"
